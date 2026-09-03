@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from pygrowup import Calculator
+from pygrowup import Observation
 
 st.set_page_config(
     page_title="Deteksi Stunting Anak",
@@ -15,27 +15,29 @@ st.write(
     "serta menentukan status gizi anak berdasarkan standar antropometri."
 )
 
-calc = Calculator(
-    adjust_height_data=True,
-    adjust_weight_scores=False,
-    include_cdc=False
-)
+# Calculator tidak digunakan pada pygrowup2
 
-def safe_zscore(fn, value, age, sex, standing):
+def safe_zscore(indicator, value, age, sex):
     if pd.isna(value):
         return np.nan
 
     try:
-        z = fn(
-            measurement=value,
-            age_in_months=age,
+        obs = Observation(
             sex=sex,
-            height=standing
+            age_in_months=age
         )
+
+        if indicator == "lhfa":
+            z = obs.lhfa(value)
+        elif indicator == "wfa":
+            z = obs.wfa(value)
+        else:
+            return np.nan
+
         return float(z) if z is not None else np.nan
+
     except Exception:
         return np.nan
-
 
 def klasifikasi_tbu(z):
     if pd.isna(z):
@@ -101,27 +103,25 @@ posture = st.selectbox(
 if st.button("🔍 Deteksi Status Gizi"):
 
     sex_code = {
-        "Male": "M",
-        "Female": "F"
-    }[gender]
+    "Male": Observation.MALE,
+    "Female": Observation.FEMALE
+}[gender]
 
     is_standing = posture == "Standing"
 
     z_tbu = safe_zscore(
-        calc.lhfa,
-        height,
-        age,
-        sex_code,
-        is_standing
-    )
+    "lhfa",
+    height,
+    age,
+    sex_code
+)
 
     z_bbu = safe_zscore(
-        calc.wfa,
-        weight,
-        age,
-        sex_code,
-        is_standing
-    )
+    "wfa",
+    weight,
+    age,
+    sex_code
+)
 
     status_tbu = klasifikasi_tbu(z_tbu)
     status_bbu = klasifikasi_bbu(z_bbu)
